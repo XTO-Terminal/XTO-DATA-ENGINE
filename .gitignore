@@ -4,3 +4,24 @@ logs/
 *.log
 dist/
 .next/
+
+# Environment and credentials
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Local backups and temporary files
+*.bak
+*.bak.*
+*.tmp
+*.tmp.ts
+*.tar.gz
+
+# Runtime and local data
+*.sqlite
+*.sqlite3
+*.db
+coverage/

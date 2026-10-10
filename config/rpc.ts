@@ -223,6 +223,22 @@ export type RpcBlock = {
   timestamp: string;
 };
 
+export type RpcTransaction = {
+  hash: string;
+  transactionIndex: string;
+  from: string;
+  to: string | null;
+  value: string;
+  gas: string;
+  gasPrice?: string;
+  nonce: string;
+  input: string;
+};
+
+export type RpcBlockWithTransactions = RpcBlock & {
+  transactions: RpcTransaction[];
+};
+
 export async function getChainId(): Promise<number> {
   const result =
     await rpc<string>("eth_chainId");
@@ -249,10 +265,90 @@ export async function getBlock(
   );
 }
 
+export async function getBlockWithTransactions(
+  blockNumber: number
+): Promise<RpcBlockWithTransactions | null> {
+  const hexBlock =
+    `0x${blockNumber.toString(16)}`;
+
+  return await rpc<RpcBlockWithTransactions | null>(
+    "eth_getBlockByNumber",
+    [hexBlock, true]
+  );
+}
+
 export function getRpcUrl(): string {
   return RPC_URL;
 }
 
 export function getConfiguredChainId(): number {
   return CHAIN_ID;
+}
+
+export type RpcLog = {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  transactionHash: string;
+  transactionIndex: string;
+  blockHash: string;
+  blockTimestamp?: string;
+  logIndex: string;
+  removed?: boolean;
+};
+
+export type GetLogsFilter = {
+  fromBlock: number;
+  toBlock: number;
+  address?: string | string[];
+  topics?: Array<string | string[] | null>;
+};
+
+export async function getLogs(
+  filter: GetLogsFilter
+): Promise<RpcLog[]> {
+  const rpcFilter: {
+    fromBlock: string;
+    toBlock: string;
+    address?: string | string[];
+    topics?: Array<string | string[] | null>;
+  } = {
+    fromBlock: `0x${filter.fromBlock.toString(16)}`,
+    toBlock: `0x${filter.toBlock.toString(16)}`,
+  };
+
+  if (filter.address !== undefined) {
+    rpcFilter.address = filter.address;
+  }
+
+  if (filter.topics !== undefined) {
+    rpcFilter.topics = filter.topics;
+  }
+
+  return await rpc<RpcLog[]>(
+    "eth_getLogs",
+    [rpcFilter]
+  );
+}
+
+export type EthCallRequest = {
+  to: string;
+  data: string;
+};
+
+export async function ethCall(
+  request: EthCallRequest,
+  blockTag: string = "latest"
+): Promise<string> {
+  return await rpc<string>(
+    "eth_call",
+    [
+      {
+        to: request.to,
+        data: request.data,
+      },
+      blockTag,
+    ]
+  );
 }

@@ -35,14 +35,22 @@ async function setLastProcessedBlock(
   blockNumber: number
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO indexer_state (key, value, status)
-     VALUES ('last_processed_block', $1, 'running')
+    `INSERT INTO indexer_state (key, value)
+     VALUES ('last_processed_block', $1)
      ON CONFLICT (key)
      DO UPDATE SET
        value = EXCLUDED.value,
-       status = 'running',
        updated_at = NOW()`,
     [String(blockNumber)]
+  );
+
+  await pool.query(
+    `INSERT INTO indexer_state (key, value)
+     VALUES ('status', 'running')
+     ON CONFLICT (key)
+     DO UPDATE SET
+       value = EXCLUDED.value,
+       updated_at = NOW()`
   );
 }
 
@@ -132,10 +140,14 @@ async function bootstrap(): Promise<void> {
     `[INDEXER] Starting from ${lastProcessed + 1}`
   );
 
+  let consecutiveErrors = 0;
+
   while (true) {
     try {
       const currentLatest =
         await getBlockNumber();
+
+      consecutiveErrors = 0;
 
       if (lastProcessed < currentLatest) {
         const nextBlock =
@@ -157,8 +169,22 @@ async function bootstrap(): Promise<void> {
         error
       );
 
+      consecutiveErrors += 1;
+
+      const baseDelay = Math.min(
+        5000 * (2 ** Math.min(consecutiveErrors - 1, 4)),
+        60000
+      );
+
+      const jitter = Math.floor(Math.random() * 3000);
+      const retryDelay = baseDelay + jitter;
+
+      console.error(
+        `[INDEXER RPC BACKOFF] consecutive=${consecutiveErrors} retry_in_ms=${retryDelay}`
+      );
+
       await new Promise((resolve) =>
-        setTimeout(resolve, 5000)
+        setTimeout(resolve, retryDelay)
       );
     }
   }
